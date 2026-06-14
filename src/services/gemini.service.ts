@@ -45,15 +45,43 @@ export const analyzeCarbonData = async (userData: any) => {
     const response = await result.response;
     const text = response.text();
     
-    // Clean up the response if it contains markdown code blocks
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
     }
     
     return JSON.parse(text);
-  } catch (error) {
-    console.error("Gemini Analysis Error:", error);
-    throw new Error("Failed to analyze carbon data");
+  } catch (error: any) {
+    console.error("Gemini Pro Error, trying Flash fallback:", error);
+    
+    // Fallback to Flash if Pro fails
+    try {
+      const flashModel = getGeminiModel("gemini-1.5-flash");
+      const result = await flashModel.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) return JSON.parse(jsonMatch[0]);
+      return JSON.parse(text);
+    } catch (fallbackError: any) {
+      console.error("Gemini Fallback Error:", fallbackError);
+      
+      // Extract specific error message if available
+      let errorMessage = "Failed to analyze carbon data";
+      if (fallbackError.message) {
+        if (fallbackError.message.includes("API_KEY_INVALID")) {
+          errorMessage = "Your Gemini API Key is invalid. Please check your .env.local file.";
+        } else if (fallbackError.message.includes("quota")) {
+          errorMessage = "Gemini API quota exceeded. Please try again later.";
+        } else if (fallbackError.message.includes("location")) {
+          errorMessage = "The Gemini API is not available in your current region.";
+        } else {
+          errorMessage = fallbackError.message;
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
   }
 };
