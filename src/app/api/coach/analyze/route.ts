@@ -16,9 +16,15 @@ export async function POST(req: NextRequest) {
     
     return NextResponse.json(insights);
   } catch (error: any) {
-    console.error("API Route Error:", error);
+    // Log the full error for debugging
+    console.error("DETAILED API ROUTE ERROR:", error);
+    
     return NextResponse.json(
-      { error: "Internal Server Error", message: error.message },
+      { 
+        error: "Internal Server Error", 
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+      },
       { status: 500 }
     );
   }

@@ -11,6 +11,7 @@ import { useCarbonStore } from "@/store/useCarbonStore";
 import { useUserStore } from "@/store/useUserStore";
 import { cn } from "@/lib/utils";
 import DOMPurify from "dompurify";
+import Link from "next/link";
 
 export default function CoachPage() {
   const { totalScore, breakdown } = useCarbonStore();
@@ -20,6 +21,8 @@ export default function CoachPage() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchInsights = async () => {
+    if (totalScore === 0) return;
+    
     setLoading(true);
     setError(null);
     try {
@@ -33,22 +36,26 @@ export default function CoachPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to fetch insights");
-      
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to fetch insights");
+      }
+      
       setInsights(data);
-    } catch (err) {
-      setError("I'm having trouble connecting to my sustainability database. Please try again in a moment.");
+    } catch (err: any) {
+      console.error("Coach Page Error:", err);
+      setError(err.message || "I'm having trouble connecting to my sustainability database. Please check your API key.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (totalScore > 0 && !insights && !loading) {
+    if (totalScore > 0 && !insights && !loading && !error) {
       fetchInsights();
     }
-  }, [totalScore]);
+  }, [totalScore, insights, loading, error]);
 
   return (
     <div className="max-w-5xl mx-auto flex flex-col gap-8 pb-20">
@@ -63,43 +70,66 @@ export default function CoachPage() {
         </p>
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* Chat / Insights Area */}
-        <div className="lg:col-span-2 space-y-6">
-          <AnimatePresence mode="wait">
-            {loading ? (
-              <motion.div 
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="glass-panel p-12 flex flex-col items-center justify-center gap-6 min-h-[400px]"
-              >
-                <div className="relative">
-                  <Loader2 className="w-12 h-12 text-forest animate-spin" />
-                  <Bot className="w-6 h-6 text-forest absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-                </div>
-                <p className="text-lg font-medium text-forest/70 animate-pulse text-center">
-                  Analyzing your footprint and crafting <br/> personal recommendations...
-                </p>
-              </motion.div>
-            ) : error ? (
-              <motion.div 
-                key="error"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="glass-panel p-12 flex flex-col items-center justify-center gap-4 text-center text-red-500"
-              >
-                <AlertCircle className="w-12 h-12" />
-                <p className="font-bold text-lg">{error}</p>
-                <button 
-                  onClick={fetchInsights}
-                  className="mt-4 bg-forest text-white px-6 py-2 rounded-xl font-bold"
+      {totalScore === 0 ? (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-panel p-12 flex flex-col items-center justify-center text-center gap-6"
+        >
+          <div className="bg-forest/10 p-4 rounded-full">
+            <Leaf className="w-12 h-12 text-forest" />
+          </div>
+          <h2 className="text-2xl font-bold font-poppins">No Carbon Data Found</h2>
+          <p className="text-forest/60 max-w-md">
+            I need to know your current carbon footprint before I can give you personalized advice.
+          </p>
+          <Link href="/calculator" className="bg-forest text-white px-8 py-3 rounded-2xl font-bold hover:bg-teal transition-all shadow-xl">
+            Go to Calculator
+          </Link>
+        </motion.div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          {/* Chat / Insights Area */}
+          <div className="lg:col-span-2 space-y-6">
+            <AnimatePresence mode="wait">
+              {loading ? (
+                <motion.div 
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="glass-panel p-12 flex flex-col items-center justify-center gap-6 min-h-[400px]"
                 >
-                  Retry Analysis
-                </button>
-              </motion.div>
-            ) : insights ? (
+                  <div className="relative">
+                    <Loader2 className="w-12 h-12 text-forest animate-spin" />
+                    <Bot className="w-6 h-6 text-forest absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                  </div>
+                  <p className="text-lg font-medium text-forest/70 animate-pulse text-center">
+                    Analyzing your footprint and crafting <br/> personal recommendations...
+                  </p>
+                </motion.div>
+              ) : error ? (
+                <motion.div 
+                  key="error"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="glass-panel p-12 flex flex-col items-center justify-center gap-4 text-center"
+                >
+                  <div className="text-red-500">
+                    <AlertCircle className="w-12 h-12 mx-auto" />
+                    <p className="font-bold text-lg mt-4">{error}</p>
+                  </div>
+                  <p className="text-sm opacity-60 max-w-xs">
+                    This usually happens if the API key is invalid or the service is temporarily down.
+                  </p>
+                  <button 
+                    onClick={fetchInsights}
+                    className="mt-4 bg-forest text-white px-6 py-2 rounded-xl font-bold hover:bg-teal transition-all"
+                  >
+                    Retry Analysis
+                  </button>
+                </motion.div>
+              ) : insights ? (
               <motion.div 
                 key="insights"
                 initial={{ opacity: 0, y: 20 }}
